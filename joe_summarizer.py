@@ -1,3 +1,4 @@
+import argparse
 import collections
 import logging
 import math
@@ -6,9 +7,10 @@ import re
 import sys
 
 import numpy as np
+import xml.etree.ElementTree as ET
 
-import joe.rbm
-import joe.separator
+import rbm
+import separator
 
 from RDRPOSTagger_python_3.pSCRDRtagger.RDRPOSTagger import RDRPOSTagger
 from RDRPOSTagger_python_3.Utility.Utils import readDictionary
@@ -241,7 +243,7 @@ def summarize(text):
         print(f'par#{i+1}: {p}')
 
     # SPLIT TO SENTENCES
-    sentences = joe.separator.separate(text)
+    sentences = separator.separate(text)
     print(f'Num of sentences: {len(sentences)}')
     for i, s in enumerate(sentences):
         print(f'#{i+1}: {s}')
@@ -326,7 +328,7 @@ def summarize(text):
         feature_sum.append(np.sum(feature_matrix_2, axis=1)[i])
 
     print('Training rbm...')
-    rbm_trained = joe.rbm.test_rbm(dataset=feature_matrix_2, learning_rate=0.1, training_epochs=14, batch_size=5,
+    rbm_trained = rbm.test_rbm(dataset=feature_matrix_2, learning_rate=0.1, training_epochs=14, batch_size=5,
                                    n_chains=5, n_hidden=8)
     print('Training rbm done')
     rbm_trained_sums = np.sum(rbm_trained, axis=1)
@@ -385,11 +387,13 @@ def summarize(text):
     for i in range(len(extracted_sentences_2)):
         final_text_2 += extracted_sentences_2[i][0] + '\n'
 
-    print('=====Extracted Final Text=====')
+    print('=====Extracted Final Text RBM=====')
     print(final_text)
     print()
-    print('=====Extracted Final Text 2=====')
+    print('=====Extracted Final Text simple=====')
     print(final_text_2)
+
+    return final_text_2
 
 
 text1 = '''V USA demonstrovaly tisíce lidí proti policejnímu násilí
@@ -407,4 +411,39 @@ Ve Spojených státech se v posledních měsících stalo několik případů, k
 Výsledky policejního vyšetřování měly být podle dřívějších zpráv médií oznámeny 1. května. Baltimorská policie ale ve středu podle Reuters uvedla, že žádnou zprávu v pátek nezveřejní, nález předá státnímu návladnímu. Šest baltimorských policistů bylo postaveno mimo službu.
 '''
 
-summarize(text1)
+
+def main():
+    dir = os.path.dirname(os.path.realpath(__file__))
+    print(f'dir: {dir}')
+    article_files = os.listdir(f'{dir}/articles')
+
+    for filename in article_files:
+        file_name, file_extension = os.path.splitext(filename)
+        print(f'Soubor: {filename}')
+
+        tree = ET.parse(f'{dir}/articles/{filename}')
+        root = tree.getroot()
+        articles = list(root)
+        article_number = 0
+
+        for article in articles:
+            title = article.find('nadpis').text.strip()
+            content = article.find('text').text.strip()
+            whole = f'{title}\n{content}'
+            print(f'Článek {article_number}: {title}')
+
+            summary = summarize(content)
+
+            output_file_name = f'{file_name}-{article_number}_system.txt'
+
+            # if not os.path.exists(f'{dir}/test_summaries/'):
+            #     os.makedirs(f'{dir}/test_summaries/')
+
+            with open(f'{dir}/rouge_2.0/summarizer/system/{output_file_name}', 'w') as output_file:
+                output_file.write(summary)
+
+            article_number += 1
+
+
+if __name__ == "__main__":
+    main()
