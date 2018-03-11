@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/text_summarizer_czech.iml" filepath="$PROJECT_DIR$/.idea/text_summarizer_czech.iml" />
+    </modules>
+  </component>
+</project>
