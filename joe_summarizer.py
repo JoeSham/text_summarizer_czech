@@ -7,14 +7,16 @@ import re
 import sys
 
 import numpy as np
+from sklearn.neural_network import BernoulliRBM
 import xml.etree.ElementTree as ET
 
+import czech_stemmer
 import rbm
-import separator
-
 from RDRPOSTagger_python_3.pSCRDRtagger.RDRPOSTagger import RDRPOSTagger
 from RDRPOSTagger_python_3.Utility.Utils import readDictionary
 os.chdir('../..')  # because above modules do chdir ... :/
+import separator
+import textrank
 
 logger = logging.getLogger('summarizer')
 logging.basicConfig(level=logging.DEBUG)
@@ -43,20 +45,6 @@ def pos_tag(sentences):
     return tagged_sentences
 
 
-# def remove_stop_words(sentences, keep_case=False):
-#     sentences_without_stopwords = []
-#     for sentence_orig in sentences:
-#         sentence_without_stopwords = []
-#         if keep_case:
-#             words = sentence_orig.split()
-#         else:
-#             words = sentence_orig.lower().split()
-#         for word in words:
-#             if word.lower() not in STOPWORDS:
-#                 sentence_without_stopwords.append(word)
-#         sentences_without_stopwords.append(' '.join(sentence_without_stopwords))
-#     return sentences_without_stopwords
-
 def remove_stop_words(sentences, keep_case=False, is_tokenized=True, return_tokenized=True):
     if is_tokenized:
         tokenized_sentences = sentences
@@ -77,7 +65,8 @@ def remove_stop_words(sentences, keep_case=False, is_tokenized=True, return_toke
 def tokenize(sentences):
     tokenized = []
     for s in sentences:
-        tokenized.append(s.split())
+        tokenized.append([w.strip(' ,.!?"():;-') for w in s.split()])
+        # tokenized.append(s.split())
     return tokenized
 
 
@@ -105,8 +94,10 @@ def thematicity_feature(tokenized_sentences, most_common_cutoff=10):
         for word in sentence:
             if word in thematic_words:
                 count_of_thematic_words += 1
-        thematicity = count_of_thematic_words / len(sentence)
+        thematicity = count_of_thematic_words / (len(sentence) + 0.000001)
         thematicity_scores.append(thematicity)
+    max_score = max(thematicity_scores)
+    thematicity_scores = [score / max_score for score in thematicity_scores]
     return thematicity_scores
 
 
@@ -118,7 +109,7 @@ def upper_case_feature(tokenized_sentences):
         for word in sentence:
             if word[0].isupper():
                 count_of_uppercase_starting_words += 1
-        scores.append(count_of_uppercase_starting_words / len(sentence))
+        scores.append(count_of_uppercase_starting_words / (len(sentence) + 0.000001))
     return scores
 
 
@@ -131,7 +122,7 @@ def tf_isf_orig_feature(tokenized_sentences):
         score = 0
         for word in counts.keys():
             score += math.log(counts[word] * counts_total[word])
-        scores.append(score / len(sentence))
+        scores.append(score / (len(sentence) + 0.000001))
     return scores
 
 
@@ -146,7 +137,7 @@ def tf_isf_orig_feature(tokenized_sentences):
 #                 if word in sentence_2:
 #                     sentences_with_word_count += 1
 #             tf_isf += counts[word] * math.log(len(tokenized_sentences) / sentences_with_word_count)
-#         scores.append(tf_isf / len(sentence))
+#         scores.append(tf_isf / (len(sentence) + 0.000001))
 #     return scores
 
 
@@ -157,7 +148,7 @@ def proper_noun_feature(tagged):
         for word, tag in sentence:
             if tag == 'PROPN':
                 score += 1
-        scores.append(score / len(sentence))
+        scores.append(score / (len(sentence) + 0.000001))
     return scores
 
 
@@ -207,27 +198,52 @@ def numerals_feature(tokenized_sentences):
         for word in sentence:
             if is_number(word):
                 score +=1
-        scores.append(score / len(sentence))
+        scores.append(score / (len(sentence) + 0.000001))
     return scores
 
 
+# def sentence_position_feature(num_sentences):
+#     threshold = 0.2 * num_sentences
+#     min_v = threshold * num_sentences
+#     max_v = threshold * 2 * num_sentences
+#     pos = []
+#     for sentence_pos in range(num_sentences):
+#         if sentence_pos in (0, num_sentences - 1):
+#             pos.append(1)
+#         else:
+#             t = math.cos((sentence_pos - min_v) * ((1 / max_v) - min_v))
+#             pos.append(t)
+#     return pos
+
 def sentence_position_feature(num_sentences):
-    threshold = 0.2 * num_sentences
-    min_v = threshold * num_sentences
-    max_v = threshold * 2 * num_sentences
     pos = []
     for sentence_pos in range(num_sentences):
-        if sentence_pos in (0, num_sentences - 1):
-            pos.append(1)
-        else:
-            t = math.cos((sentence_pos - min_v) * ((1 / max_v) - min_v))
-            pos.append(t)
+        pos.append((num_sentences - 1 - 2 * min(sentence_pos, num_sentences - 1 - sentence_pos)) / (num_sentences - 1))
     return pos
 
 
 def sentence_length_feature(tokenized_sentences):
     max_len = max(len(s) for s in tokenized_sentences)
-    scores = [len(s) / max_len if 3 < len(s) < 11 else 0 for s in tokenized_sentences]
+    scores = [len(s) / max_len if 3 < len(s) else 0 for s in tokenized_sentences]
+    return scores
+
+
+def quotes_feature(sentences):
+    scores = [0 if s.count('"') % 2 == 1 else 1 for s in sentences]
+    return scores
+
+
+def references_feature(tokenized_sentences):
+    references = ['to', 'proto', 'on', 'ona', 'oni', 'jeho', 'její', 'ho', 'ji']
+    scores = []
+    for s in tokenized_sentences:
+        score = 0
+        for w in s:
+            if w in references:
+                score += 1
+        scores.append(score)
+    max_ref = max(scores)
+    scores = [1 if max_ref == 0 else (max_ref - score) / max_ref for score in scores]
     return scores
 
 
@@ -238,9 +254,9 @@ def summarize(text):
     for i, p in enumerate(pre_paragraphs):
         if not re.match(r'^\s*$', p) and (i == len(pre_paragraphs) - 1 or re.match(r'^\s*$', pre_paragraphs[i+1])):
             paragraphs.append(p)
-    print(f'Num of paragraphs: {len(paragraphs)}')
-    for i, p in enumerate(paragraphs):
-        print(f'par#{i+1}: {p}')
+    # print(f'Num of paragraphs: {len(paragraphs)}')
+    # for i, p in enumerate(paragraphs):
+    #     print(f'par#{i+1}: {p}')
 
     # SPLIT TO SENTENCES
     sentences = separator.separate(text)
@@ -249,7 +265,12 @@ def summarize(text):
         print(f'#{i+1}: {s}')
 
     # TOKENIZE
-    tokenized_sentences = tokenize(sentences)
+    stem = False
+    if stem:
+        tokenized_sentences = [[czech_stemmer.cz_stem(word, aggressive=False) for word in sentence]
+                               for sentence in tokenize(sentences)]
+    else:
+        tokenized_sentences = tokenize(sentences)
 
     # REMOVE STOPWORDS
     tokenized_sentences_without_stopwords = remove_stop_words(tokenized_sentences, keep_case=False)
@@ -259,9 +280,15 @@ def summarize(text):
     for i, s in enumerate(tokenized_sentences_without_stopwords):
         print(f'''#{i+1}: {' '.join(s)}''')
 
+    print('===Sentences without stopwords CASE===')
+    for i, s in enumerate(sentences_without_stopwords_case):
+        print(f'''#{i+1}: {s}''')
+
     # POS-TAG
     tagged_sentences = pos_tag(sentences_without_stopwords_case)
-    print(f'tagged_sentences: {tagged_sentences}')
+    print('=====Tagged_sentences=====')
+    for i, s in enumerate(tagged_sentences):
+        print(f'''#{i+1}: {s}''')
 
     # 1. THEMATICITY FEATURE
     thematicity_feature_scores = thematicity_feature(tokenized_sentences_without_stopwords)
@@ -291,6 +318,15 @@ def summarize(text):
     # 10. UPPER-CASE FEATURE (not in the paper)
     upper_case_scores = upper_case_feature(tokenized_sentences)
 
+    # 11. QUOTES FEATURE (not in the paper)
+    quotes_scores = quotes_feature(sentences)
+
+    # 12. REFERENCES FEATURE (not in the paper)
+    references_scores = references_feature(tokenized_sentences)
+
+    # 13. TEXTRANK FEATURE (not in the paper)
+    textrank_scores = textrank.textrank(tokenized_sentences, True, '4-1-0.0001')
+
     feature_matrix = []
     feature_matrix.append(thematicity_feature_scores)
     feature_matrix.append(sentence_position_scores)
@@ -301,20 +337,10 @@ def summarize(text):
     feature_matrix.append(centroid_similarity_scores)
     feature_matrix.append(upper_case_scores)
 
-    print('=====Scores=====')
     features = ['  thema', 'sen_pos', 'sen_len', '  propn', '    num', ' tf_isf', 'cen_sim', '  upper']
-    print(35 * ' ', end='|')
-    for f in features:
-        print(f, end='|')
-    print()
-    for i, s in enumerate(sentences):
-        print(f'#{"{:2d}".format(i + 1)}: {s[:30]}', end='|')
-        for f_s in feature_matrix:
-            print('{: .4f}'.format(round(f_s[i], 4)), end='|')
-        print()
 
-    feature_matrix_2 = np.zeros((len(sentences), 8))
-    for i in range(8):
+    feature_matrix_2 = np.zeros((len(sentences), len(features)))
+    for i in range(len(features)):
         for j in range(len(sentences)):
             feature_matrix_2[j][i] = feature_matrix[i][j]
 
@@ -327,9 +353,23 @@ def summarize(text):
     for i in range(len(np.sum(feature_matrix_2, axis=1))):
         feature_sum.append(np.sum(feature_matrix_2, axis=1)[i])
 
+    print('=====Scores=====')
+    print(35 * ' ', end='|')
+    for f in features:
+        print(f, end='|')
+    print()
+    for i, s in enumerate(sentences):
+        print(f'#{"{:2d}".format(i + 1)}: {s[:30]}', end='|')
+        for f_s in feature_matrix:
+            print('{: .4f}'.format(round(f_s[i], 4)), end='|')
+        print('{: .4f}'.format(round(feature_sum[i], 4)))
+
     print('Training rbm...')
     rbm_trained = rbm.test_rbm(dataset=feature_matrix_2, learning_rate=0.1, training_epochs=14, batch_size=5,
-                                   n_chains=5, n_hidden=8)
+                               n_chains=5, n_hidden=len(features))
+    # rbm2 = BernoulliRBM(n_components=len(features), n_iter=14, batch_size=5, learning_rate=0.1)
+    # rbm_trained = rbm2.fit_transform(feature_matrix_2)
+    # print(rbm_trained)
     print('Training rbm done')
     rbm_trained_sums = np.sum(rbm_trained, axis=1)
 
@@ -354,15 +394,15 @@ def summarize(text):
     print(f'enhanced_feature_sum: {enhanced_feature_sum}')
     print(f'feature_sum: {feature_sum}')
 
-    enhanced_feature_sum.sort(key=lambda x: -1 * x[0])
-    feature_sum.sort(key=lambda x: x[0])
+    enhanced_feature_sum.sort(key=lambda x: x[0])
+    feature_sum.sort(key=lambda x: -1 * x[0])
     print('=====Sorted=====')
     print(f'enhanced_feature_sum: {enhanced_feature_sum}')
     print(f'feature_sum: {feature_sum}')
 
-    print('=====The text=====')
-    for x in range(len(sentences)):
-        print(sentences[x])
+    # print('=====The text=====')
+    # for x in range(len(sentences)):
+    #     print(sentences[x])
 
     extracted_sentences = []
     extracted_sentences.append([sentences[0], 0])
@@ -370,7 +410,7 @@ def summarize(text):
     extracted_sentences_2.append([sentences[0], 0])
 
     # length_to_be_extracted = len(enhanced_feature_sum) // 2
-    summary_length = max(min(len(sentences) // 4, 8), 3)  # length between 3-8 sentences
+    summary_length = max(min(round(len(sentences) / 4), 12), 3)  # length between 3-12 sentences
     for x in range(summary_length):
         if enhanced_feature_sum[x][1] != 0:
             extracted_sentences.append([sentences[enhanced_feature_sum[x][1]], enhanced_feature_sum[x][1]])
@@ -380,48 +420,34 @@ def summarize(text):
     extracted_sentences.sort(key=lambda x: x[1])
     extracted_sentences_2.sort(key=lambda x: x[1])
 
-    final_text = ''
+    final_text_rbm = ''
     for i in range(len(extracted_sentences)):
-        final_text += extracted_sentences[i][0] + '\n'
-    final_text_2 = ''
+        final_text_rbm += extracted_sentences[i][0] + '\n'
+    final_text_simple = ''
     for i in range(len(extracted_sentences_2)):
-        final_text_2 += extracted_sentences_2[i][0] + '\n'
+        final_text_simple += extracted_sentences_2[i][0] + '\n'
 
     print('=====Extracted Final Text RBM=====')
-    print(final_text)
+    print(final_text_rbm)
     print()
     print('=====Extracted Final Text simple=====')
-    print(final_text_2)
+    print(final_text_simple)
 
-    return final_text_2
-
-
-text1 = '''V USA demonstrovaly tisíce lidí proti policejnímu násilí
-
-Tisíce lidí demonstrovaly v noci na čtvrtek v Baltimoru, New Yorku, Washingtonu, Bostonu a dalších amerických městech na protest proti policejní brutalitě. Protesty se obešly bez většího násilí, ale v New Yorku, kde se sešlo několik set demonstrantů, podle BBC zatkla policie šedesát lidí.
-
-Demonstranti protestovali proti policejnímu násilí, protože v Baltimoru zemřel černošský mladík Freddie Gray na následky zranění při zatýkání. Od pondělního pohřbu lidé v Baltimoru masově protestují, ve městě platí zákaz nočního vycházení a nasazena byla Národní garda.    
-    
-„Bez spravedlnosti nebude mír,” skandovali ve středu večer v Baltimoru demonstranti. „Pošlete ty zabijácké policisty do vězení. Vinen je celý tento mizerný systém,” prohlašovali studenti a další mladí lidé. „Vraždící policisté si zasluhují celu,” stálo na jednom z početných transparentů.
-
-Silné byly protesty i v New Yorku, kde lidé odsuzovali policejní násilí na černošských obyvatelích a hájili právo na protest.
-
-Ve Spojených státech se v posledních měsících stalo několik případů, kdy bělošští policisté při zásahu zabili černocha. Baltimore se však od ostatních incidentů odlišuje, neboť má černošského policejního náčelníka i černošskou starostku. Pětadvacetiletý Gray zemřel 19. dubna na následky zlomeniny krčních obratlů, kterou utrpěl o týden dříve při zatýkání. Policie následně připustila, že policisté v rozporu s předpisy nezajistili Grayovi náležitou zdravotní péči. Když ho nakládali 12. dubna do antonu, Gray normálně komunikoval. O tři čtvrtě hodiny později už žádali o zásah zdravotníků, kteří ho převezli do nemocnice, kde po týdnu zemřel.
-    
-Výsledky policejního vyšetřování měly být podle dřívějších zpráv médií oznámeny 1. května. Baltimorská policie ale ve středu podle Reuters uvedla, že žádnou zprávu v pátek nezveřejní, nález předá státnímu návladnímu. Šest baltimorských policistů bylo postaveno mimo službu.
-'''
+    return final_text_rbm
+    # return final_text_simple
 
 
 def main():
-    dir = os.path.dirname(os.path.realpath(__file__))
-    print(f'dir: {dir}')
-    article_files = os.listdir(f'{dir}/articles')
+    my_dir = os.path.dirname(os.path.realpath(__file__))
+    print(f'dir: {my_dir}')
+    article_files = os.listdir(f'{my_dir}/articles')
 
     for filename in article_files:
         file_name, file_extension = os.path.splitext(filename)
-        print(f'Soubor: {filename}')
+        print(f'=========================Soubor: {filename}=============================')
+        print('========================================================================')
 
-        tree = ET.parse(f'{dir}/articles/{filename}')
+        tree = ET.parse(f'{my_dir}/articles/{filename}')
         root = tree.getroot()
         articles = list(root)
         article_number = 0
@@ -429,7 +455,6 @@ def main():
         for article in articles:
             title = article.find('nadpis').text.strip()
             content = article.find('text').text.strip()
-            whole = f'{title}\n{content}'
             print(f'Článek {article_number}: {title}')
 
             summary = summarize(content)
@@ -439,7 +464,7 @@ def main():
             # if not os.path.exists(f'{dir}/test_summaries/'):
             #     os.makedirs(f'{dir}/test_summaries/')
 
-            with open(f'{dir}/rouge_2.0/summarizer/system/{output_file_name}', 'w') as output_file:
+            with open(f'{my_dir}/rouge_2.0/summarizer/system/{output_file_name}', 'w') as output_file:
                 output_file.write(summary)
 
             article_number += 1
@@ -447,3 +472,62 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+'''
+Evropským institucím dochází trpělivost s českým ministerstvem školství.
+
+Po několika výtkách ke konkrétním projektům nyní Evropská komise pohrozila Česku, že zastaví proplácení celého programu Vzdělávání pro konkurenceschopnost.
+
+Z něj by stát měl čerpat až 53 miliard korun.
+
+Informaci jako první přinesl server Euro.cz.
+
+Premiér Petr Nečas takovou hrozbu Aktuálně.cz potvrdil.
+
+Naproti tomu ministerstvo školství tvrdí, že od EK nemá o hrozbě pozastavení celého programu žádné oficiální informace.
+
+Nečas se v pátek kvůli problémům s využitím evropských dotací sešel s ministrem školství Josefem Dobešem (VV).
+
+"Šlo o informativní schůzku, kde mi pan ministr sdělil stav čerpání operačních programů a nastínil způsoby řešení.
+
+Ministerstvo školství nyní musí vyvinout maximální úsilí, aby vše vyřešilo," uvedl premiér. 
+
+"Zastavení operačního programu Vzdělávání pro konkurenceschopnost opravdu hrozí," dodal.
+
+Dobeš nemá pevnou půdu pod nohama už ani ve své vlastní straně - Věcech veřejných.
+
+Místopředsedkyně VV Kateřina Klasnová v pátek prohlásila, že pokud Dobeš do dubna situaci s eurodotacemi nevyřeší, mohla by strana sáhnout k jeho odvolání.
+
+"Samozřejmě očekáváme, že uspokojivě celou situaci vyřeší.
+
+Ano, mohlo by to vést i k výměně," řekla serveru iDNES.cz Klasnová.
+
+"Vedení ministerstva školství v tuto chvíli nemá informaci o tom, že by dorazil dopis o pozastavení operačního programu Vzdělávání pro konkurenceschopnost," řekl ČTK mluvčí ministerstva školství Radek Melichar.
+
+Dodal, že ministerstvo je při správě programu partnerem EK a mělo by mít oficiální informace jako první.
+
+"Pokud pan premiér má nějaký takový dopis, tak je to nestandardní," poznamenal.
+
+V průběhu pátečního odpoledne potom ministerstvo oficiálně dementovalo informace o zastavení operačního programu.
+
+K dopisu, který premiér dostal, se však už dále nevyjádřilo.
+
+Nedávno zveřejněný audit Evropské komise odhalil chyby v kontrole zadávání veřejných zakázek v operačním programu Vzdělávání pro konkurenceschopnost.
+
+I proto také komise pozastavila vyplácení dotací v tomto programu ve výši 1,2 miliardy korun.
+
+"Využití finančních zdrojů tohoto programu je ohroženo.
+
+Komise nám vytýká nedostatečné čerpání, výběr projektů, nedostatky ve výběrových řízeních a nedostatečnou kontrolu auditorů.
+
+Problémem je i časté střídání úředníků pověřených administrací programu," řekla týdeníku Euro česká velvyslankyně při EU Milena Vicenová.
+
+V operačním programu Vzdělávání pro konkurenceschopnost může ČR čerpat až 53 miliard korun, ohroženy nejsou jen prostředky, které už unie certifikovala.
+
+Ty činí asi 4,2 miliardy korun.
+
+Dobeš už dříve prohlásil, že problém s čerpáním evropských dotací na ministerstvu školství je jen technický a do tří měsíců bude vyřešen.
+
+Řekl, že kdyby jeho ministerstvo přidělené peníze nevyčerpalo, opustí funkci.
+'''

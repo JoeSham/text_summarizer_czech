@@ -440,7 +440,7 @@ def test_rbm(dataset,learning_rate=0.1, training_epochs=5, batch_size=4,n_chains
         for batch_index in range(n_train_batches):
             mean_cost += [train_rbm(batch_index)]
 
-        print('Training epoch %d, cost is ' % epoch, numpy.mean(mean_cost))
+        # print('Training epoch %d, cost is ' % epoch, numpy.mean(mean_cost))
 
 
     end_time = timeit.default_timer()
