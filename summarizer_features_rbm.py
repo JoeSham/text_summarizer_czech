@@ -4,7 +4,6 @@ import logging
 import math
 import os
 import re
-import sys
 
 import numpy as np
 from sklearn.neural_network import BernoulliRBM
@@ -349,7 +348,6 @@ def summarize(text):
     # feature_matrix_normed = feature_matrix
 
     feature_sum = []
-
     for i in range(len(np.sum(feature_matrix_2, axis=1))):
         feature_sum.append(np.sum(feature_matrix_2, axis=1)[i])
 
@@ -461,9 +459,6 @@ def main():
 
             output_file_name = f'{file_name}-{article_number}_system.txt'
 
-            # if not os.path.exists(f'{dir}/test_summaries/'):
-            #     os.makedirs(f'{dir}/test_summaries/')
-
             with open(f'{my_dir}/rouge_2.0/summarizer/system/{output_file_name}', 'w') as output_file:
                 output_file.write(summary)
 
@@ -472,62 +467,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-'''
-Evropským institucím dochází trpělivost s českým ministerstvem školství.
-
-Po několika výtkách ke konkrétním projektům nyní Evropská komise pohrozila Česku, že zastaví proplácení celého programu Vzdělávání pro konkurenceschopnost.
-
-Z něj by stát měl čerpat až 53 miliard korun.
-
-Informaci jako první přinesl server Euro.cz.
-
-Premiér Petr Nečas takovou hrozbu Aktuálně.cz potvrdil.
-
-Naproti tomu ministerstvo školství tvrdí, že od EK nemá o hrozbě pozastavení celého programu žádné oficiální informace.
-
-Nečas se v pátek kvůli problémům s využitím evropských dotací sešel s ministrem školství Josefem Dobešem (VV).
-
-"Šlo o informativní schůzku, kde mi pan ministr sdělil stav čerpání operačních programů a nastínil způsoby řešení.
-
-Ministerstvo školství nyní musí vyvinout maximální úsilí, aby vše vyřešilo," uvedl premiér. 
-
-"Zastavení operačního programu Vzdělávání pro konkurenceschopnost opravdu hrozí," dodal.
-
-Dobeš nemá pevnou půdu pod nohama už ani ve své vlastní straně - Věcech veřejných.
-
-Místopředsedkyně VV Kateřina Klasnová v pátek prohlásila, že pokud Dobeš do dubna situaci s eurodotacemi nevyřeší, mohla by strana sáhnout k jeho odvolání.
-
-"Samozřejmě očekáváme, že uspokojivě celou situaci vyřeší.
-
-Ano, mohlo by to vést i k výměně," řekla serveru iDNES.cz Klasnová.
-
-"Vedení ministerstva školství v tuto chvíli nemá informaci o tom, že by dorazil dopis o pozastavení operačního programu Vzdělávání pro konkurenceschopnost," řekl ČTK mluvčí ministerstva školství Radek Melichar.
-
-Dodal, že ministerstvo je při správě programu partnerem EK a mělo by mít oficiální informace jako první.
-
-"Pokud pan premiér má nějaký takový dopis, tak je to nestandardní," poznamenal.
-
-V průběhu pátečního odpoledne potom ministerstvo oficiálně dementovalo informace o zastavení operačního programu.
-
-K dopisu, který premiér dostal, se však už dále nevyjádřilo.
-
-Nedávno zveřejněný audit Evropské komise odhalil chyby v kontrole zadávání veřejných zakázek v operačním programu Vzdělávání pro konkurenceschopnost.
-
-I proto také komise pozastavila vyplácení dotací v tomto programu ve výši 1,2 miliardy korun.
-
-"Využití finančních zdrojů tohoto programu je ohroženo.
-
-Komise nám vytýká nedostatečné čerpání, výběr projektů, nedostatky ve výběrových řízeních a nedostatečnou kontrolu auditorů.
-
-Problémem je i časté střídání úředníků pověřených administrací programu," řekla týdeníku Euro česká velvyslankyně při EU Milena Vicenová.
-
-V operačním programu Vzdělávání pro konkurenceschopnost může ČR čerpat až 53 miliard korun, ohroženy nejsou jen prostředky, které už unie certifikovala.
-
-Ty činí asi 4,2 miliardy korun.
-
-Dobeš už dříve prohlásil, že problém s čerpáním evropských dotací na ministerstvu školství je jen technický a do tří měsíců bude vyřešen.
-
-Řekl, že kdyby jeho ministerstvo přidělené peníze nevyčerpalo, opustí funkci.
-'''

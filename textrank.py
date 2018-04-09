@@ -90,20 +90,20 @@ def textrank(sentences, use_words, config):
             if abs(actual_score - new_score) < stop_threshold:
                 go_on = False
                 
-    # score_dict = dict()
-    # for i in range(0, len(sentences)):
-    #     score_dict[i] = dict(graph.nodes(True))[i]["score"]
-    #
-    # index_list = sorted(score_dict, key=score_dict.__getitem__)
-    # index_list.reverse()
-    #
-    # return index_list
-    scores = []
+    score_dict = dict()
     for i in range(0, len(sentences)):
-        scores.append(dict(graph.nodes(True))[i]["score"])
-    max_score = max(scores)
-    scores = [score / max_score for score in scores]
-    return scores
+        score_dict[i] = dict(graph.nodes(True))[i]["score"]
+
+    index_list = sorted(score_dict, key=score_dict.__getitem__)
+    index_list.reverse()
+
+    return index_list
+    # scores = []
+    # for i in range(0, len(sentences)):
+    #     scores.append(dict(graph.nodes(True))[i]["score"])
+    # max_score = max(scores)
+    # scores = [score / max_score for score in scores]
+    # return scores
 
 
 def similarity(s1, s2, use_words):
