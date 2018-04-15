@@ -1,4 +1,7 @@
-# written by Petr Machovec
+"""
+Separates text to sentences
+Written by Petr Machovec
+"""
 
 import os
 

@@ -87,6 +87,8 @@ TextRankMachovec, 3-1-inf (lcs) + always 1st sentence
   RECALL: 0.618065, PRECISION: 0.5386461363636363, F_SCORE: 0.5749318181818182
 TextRankMachovec, 3-1-inf (lcs) + always 1st sentence + 2nd sentence if in top 50%
   RECALL: 0.6230281818181816, PRECISION: 0.5462870454545454, F_SCORE: 0.5814838636363636
+TextRankMachovec, 4-1-inf (bm25) + always 1st sentence + 2nd sentence if in top 50%
+  RECALL: 0.6063581818181818, PRECISION: 0.5322820454545455, F_SCORE: 0.5660652272727272
 
 8-features + original_rbm, 1st sentence always:
   RECALL: 0.5302968181818183, PRECISION: 0.50724, F_SCORE: 0.5160354545454546

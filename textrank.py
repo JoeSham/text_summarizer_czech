@@ -4,6 +4,9 @@
 This module includes 'textrank' function, which performs TextRank algorithm with given lists of sentences
 and words, i.e. it detects the salience of sentences. Indexes of sentences ordered descendingly by their computed
 scores are returned in a list.
+
+Modified version of a script originally written by Petr Machovec.
+- Bm25 similarity function added
 """
 
 import math

@@ -1,8 +1,6 @@
-import collections
 import logging
 import math
 import os
-from operator import itemgetter
 import re
 import sys
 
@@ -13,6 +11,7 @@ import czech_stemmer
 from RDRPOSTagger_python_3.pSCRDRtagger.RDRPOSTagger import RDRPOSTagger
 from RDRPOSTagger_python_3.Utility.Utils import readDictionary
 os.chdir('../..')  # because above modules do chdir ... :/
+from rouge_2_0.rouge_20 import print_rouge_scores
 import separator
 
 logger = logging.getLogger('summarizer')
@@ -225,36 +224,44 @@ def summarize(text):
 
 
 def main():
-    my_dir = os.path.dirname(os.path.realpath(__file__))
-    print(f'dir: {my_dir}')
-    article_files = os.listdir(f'{my_dir}/articles')
-
-    for filename in article_files:
-        file_name, file_extension = os.path.splitext(filename)
-        print(f'=========================Soubor: {filename}=============================')
-        print('========================================================================')
-
-        tree = ET.parse(f'{my_dir}/articles/{filename}')
-        root = tree.getroot()
-        articles = list(root)
-        article_number = 0
-
-        for article in articles:
-            title = article.find('nadpis').text.strip()
-            content = article.find('text').text.strip()
-            print(f'Článek {article_number}: {title}')
-
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+        with open(filename, 'r') as f:
+            content = f.read()
             summary = summarize(content)
+            print(f'===Original text===\n{content}\n')
+            print(f'===Summary===\n{summary}')
+    else:
+        my_dir = os.path.dirname(os.path.realpath(__file__))
+        article_files = os.listdir(f'{my_dir}/articles')
+        total_articles = 0
 
-            output_file_name = f'{file_name}-{article_number}_system.txt'
+        for filename in article_files:
+            file_name, file_extension = os.path.splitext(filename)
+            print(f'=========================Soubor: {filename}=============================')
 
-            # if not os.path.exists(f'{dir}/test_summaries/'):
-            #     os.makedirs(f'{dir}/test_summaries/')
+            tree = ET.parse(f'{my_dir}/articles/{filename}')
+            root = tree.getroot()
+            articles = list(root)
+            article_number = 0
 
-            with open(f'{my_dir}/rouge_2.0/summarizer/system/{output_file_name}', 'w') as output_file:
-                output_file.write(summary)
+            for article in articles:
+                title = article.find('nadpis').text.strip()
+                content = article.find('text').text.strip()
+                print(f'Článek {article_number}: {title}')
 
-            article_number += 1
+                summary = summarize(content)
+
+                output_file_name = f'{file_name}-{article_number}_system.txt'
+
+                with open(f'{my_dir}/rouge_2_0/summarizer/system/{output_file_name}', 'w') as output_file:
+                    output_file.write(summary)
+
+                article_number += 1
+                total_articles += 1
+        print(f'Tested {total_articles} articles.')
+        print(f'Resulting summaries stored to {my_dir}/rouge_2_0/summarizer/system/')
+        print_rouge_scores()
 
 
 if __name__ == "__main__":

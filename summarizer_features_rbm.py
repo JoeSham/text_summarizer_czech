@@ -1,12 +1,15 @@
-import argparse
+"""
+Based on this article: https://arxiv.org/pdf/1708.04439.pdf
+"""
 import collections
 import logging
 import math
 import os
 import re
+import sys
 
 import numpy as np
-from sklearn.neural_network import BernoulliRBM
+# from sklearn.neural_network import BernoulliRBM
 import xml.etree.ElementTree as ET
 
 import czech_stemmer
@@ -14,6 +17,7 @@ import rbm
 from RDRPOSTagger_python_3.pSCRDRtagger.RDRPOSTagger import RDRPOSTagger
 from RDRPOSTagger_python_3.Utility.Utils import readDictionary
 os.chdir('../..')  # because above modules do chdir ... :/
+from rouge_2_0.rouge_20 import print_rouge_scores
 import separator
 import textrank
 
@@ -65,21 +69,10 @@ def tokenize(sentences):
     tokenized = []
     for s in sentences:
         tokenized.append([w.strip(' ,.!?"():;-') for w in s.split()])
-        # tokenized.append(s.split())
     return tokenized
 
 
 def thematicity_feature(tokenized_sentences, most_common_cutoff=10):
-    # alnum_words = []
-    # for sentence in tokenized_sentences:
-    #     for word in sentence:
-    #         is_alnum = True
-    #         for c in word:
-    #             if not c.isalnum():
-    #                 is_alnum = False
-    #                 break
-    #         if is_alnum:
-    #             alnum_words.append(word)
     words = [word for sentence in tokenized_sentences for word in sentence]
     counts = collections.Counter(words)
     most_common = counts.most_common(most_common_cutoff)
@@ -201,6 +194,7 @@ def numerals_feature(tokenized_sentences):
     return scores
 
 
+# as originally defined, but doesn't work very well
 # def sentence_position_feature(num_sentences):
 #     threshold = 0.2 * num_sentences
 #     min_v = threshold * num_sentences
@@ -213,6 +207,7 @@ def numerals_feature(tokenized_sentences):
 #             t = math.cos((sentence_pos - min_v) * ((1 / max_v) - min_v))
 #             pos.append(t)
 #     return pos
+
 
 def sentence_position_feature(num_sentences):
     pos = []
@@ -343,10 +338,6 @@ def summarize(text):
         for j in range(len(sentences)):
             feature_matrix_2[j][i] = feature_matrix[i][j]
 
-    # print("\n\n\nPrinting Feature Matrix Normed: ")
-    # feature_matrix_normed = feature_matrix / feature_matrix.max(axis=0)
-    # feature_matrix_normed = feature_matrix
-
     feature_sum = []
     for i in range(len(np.sum(feature_matrix_2, axis=1))):
         feature_sum.append(np.sum(feature_matrix_2, axis=1)[i])
@@ -365,10 +356,10 @@ def summarize(text):
     print('Training rbm...')
     rbm_trained = rbm.test_rbm(dataset=feature_matrix_2, learning_rate=0.1, training_epochs=14, batch_size=5,
                                n_chains=5, n_hidden=len(features))
+    # another implementation of rbm, from sklearn
     # rbm2 = BernoulliRBM(n_components=len(features), n_iter=14, batch_size=5, learning_rate=0.1)
     # rbm_trained = rbm2.fit_transform(feature_matrix_2)
     # print(rbm_trained)
-    print('Training rbm done')
     rbm_trained_sums = np.sum(rbm_trained, axis=1)
 
     print('=====RBM Enhanced Scores=====')
@@ -402,28 +393,27 @@ def summarize(text):
     # for x in range(len(sentences)):
     #     print(sentences[x])
 
-    extracted_sentences = []
-    extracted_sentences.append([sentences[0], 0])
-    extracted_sentences_2 = []
-    extracted_sentences_2.append([sentences[0], 0])
+    extracted_sentences_rbm = []
+    extracted_sentences_rbm.append([sentences[0], 0])
+    extracted_sentences_simple = []
+    extracted_sentences_simple.append([sentences[0], 0])
 
-    # length_to_be_extracted = len(enhanced_feature_sum) // 2
     summary_length = max(min(round(len(sentences) / 4), 12), 3)  # length between 3-12 sentences
     for x in range(summary_length):
         if enhanced_feature_sum[x][1] != 0:
-            extracted_sentences.append([sentences[enhanced_feature_sum[x][1]], enhanced_feature_sum[x][1]])
+            extracted_sentences_rbm.append([sentences[enhanced_feature_sum[x][1]], enhanced_feature_sum[x][1]])
         if feature_sum[x][1] != 0:
-            extracted_sentences_2.append([sentences[feature_sum[x][1]], feature_sum[x][1]])
+            extracted_sentences_simple.append([sentences[feature_sum[x][1]], feature_sum[x][1]])
 
-    extracted_sentences.sort(key=lambda x: x[1])
-    extracted_sentences_2.sort(key=lambda x: x[1])
+    extracted_sentences_rbm.sort(key=lambda x: x[1])
+    extracted_sentences_simple.sort(key=lambda x: x[1])
 
     final_text_rbm = ''
-    for i in range(len(extracted_sentences)):
-        final_text_rbm += extracted_sentences[i][0] + '\n'
+    for i in range(len(extracted_sentences_rbm)):
+        final_text_rbm += extracted_sentences_rbm[i][0] + '\n'
     final_text_simple = ''
-    for i in range(len(extracted_sentences_2)):
-        final_text_simple += extracted_sentences_2[i][0] + '\n'
+    for i in range(len(extracted_sentences_simple)):
+        final_text_simple += extracted_sentences_simple[i][0] + '\n'
 
     print('=====Extracted Final Text RBM=====')
     print(final_text_rbm)
@@ -436,33 +426,45 @@ def summarize(text):
 
 
 def main():
-    my_dir = os.path.dirname(os.path.realpath(__file__))
-    print(f'dir: {my_dir}')
-    article_files = os.listdir(f'{my_dir}/articles')
-
-    for filename in article_files:
-        file_name, file_extension = os.path.splitext(filename)
-        print(f'=========================Soubor: {filename}=============================')
-        print('========================================================================')
-
-        tree = ET.parse(f'{my_dir}/articles/{filename}')
-        root = tree.getroot()
-        articles = list(root)
-        article_number = 0
-
-        for article in articles:
-            title = article.find('nadpis').text.strip()
-            content = article.find('text').text.strip()
-            print(f'Článek {article_number}: {title}')
-
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+        with open(filename, 'r') as f:
+            content = f.read()
             summary = summarize(content)
+            print(f'===Original text===\n{content}\n')
+            print(f'===Summary===\n{summary}')
+    else:
+        my_dir = os.path.dirname(os.path.realpath(__file__))
+        article_files = os.listdir(f'{my_dir}/articles')
+        total_articles = 0
 
-            output_file_name = f'{file_name}-{article_number}_system.txt'
+        for filename in article_files:
+            file_name, file_extension = os.path.splitext(filename)
+            print(f'=========================Soubor: {filename}=============================')
+            print('========================================================================')
 
-            with open(f'{my_dir}/rouge_2.0/summarizer/system/{output_file_name}', 'w') as output_file:
-                output_file.write(summary)
+            tree = ET.parse(f'{my_dir}/articles/{filename}')
+            root = tree.getroot()
+            articles = list(root)
+            article_number = 0
 
-            article_number += 1
+            for article in articles:
+                title = article.find('nadpis').text.strip()
+                content = article.find('text').text.strip()
+                print(f'Článek {article_number}: {title}')
+
+                summary = summarize(content)
+
+                output_file_name = f'{file_name}-{article_number}_system.txt'
+
+                with open(f'{my_dir}/rouge_2_0/summarizer/system/{output_file_name}', 'w') as output_file:
+                    output_file.write(summary)
+
+                article_number += 1
+                total_articles += 1
+        print(f'Tested {total_articles} articles.')
+        print(f'Resulting summaries stored to {my_dir}/rouge_2_0/summarizer/system/')
+        print_rouge_scores()
 
 
 if __name__ == "__main__":
