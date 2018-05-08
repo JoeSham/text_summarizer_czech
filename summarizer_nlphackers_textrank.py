@@ -151,7 +151,7 @@ def textrank(tokenized_sentences, top_n=5, stopwords=None):
     stopwords = a list of stopwords
     """
     similarity_matrix = build_similarity_matrix(tokenized_sentences, stopwords)
-    sentence_ranks = pagerank(similarity_matrix)
+    sentence_ranks = pagerank(similarity_matrix, eps=0.0001, d=0.45)
 
     # Sort the sentence ranks
     ranked_sentence_indexes = [item[0] for item in sorted(enumerate(sentence_ranks), key=lambda item: -item[1])]
@@ -261,7 +261,8 @@ def main():
                 total_articles += 1
         print(f'Tested {total_articles} articles.')
         print(f'Resulting summaries stored to {my_dir}/rouge_2_0/summarizer/system/')
-        print_rouge_scores()
+        print_rouge_scores(rougen=1)
+        print_rouge_scores(rougen=2)
 
 
 if __name__ == "__main__":

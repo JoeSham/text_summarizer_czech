@@ -11,7 +11,7 @@ import subprocess
 import numpy
 
 
-def print_rouge_scores():
+def print_rouge_scores(rougen):
     print('===Rouge 2.0 evaluation===')
     cur_dir = os.path.dirname(os.path.realpath(__file__))
     os.chdir(cur_dir)
@@ -20,12 +20,13 @@ def print_rouge_scores():
     parser.add_argument('-n', '--rougen', type=int, default=0)
     args = parser.parse_args()
 
-    if args.rougen == 1 or args.rougen == 0:
+    if rougen == 1:
         print('using 1-grams')
         rouge = subprocess.Popen(
             args='java -jar -Drouge.prop="rouge.properties1" rouge2.0.jar', shell=True, stdout=subprocess.PIPE
         )
-    elif args.rougen == 2:
+    elif rougen == 2:
+        print('using 2-grams')
         rouge = subprocess.Popen(
             args='java -jar -Drouge.prop="rouge.properties2" rouge2.0.jar', shell=True, stdout=subprocess.PIPE
         )
@@ -68,4 +69,5 @@ def print_rouge_scores():
 
 
 if __name__ == '__main__':
-    print_rouge_scores()
+    print_rouge_scores(rougen=1)
+    print_rouge_scores(rougen=2)

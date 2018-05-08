@@ -13,7 +13,7 @@ the Czech language:
     - uses an implementation of the TextRank algorithm from the text,
     but with Okapi BM25 similarity function
 
-3. summarizer_machovec_improved.py
+3. summarizer_machovec_modified.py
     - based on a thesis by Petr Machovec at Masaryk University: https://is.muni.cz/th/359331/fi_m/Diplomova_prace.pdf
     - uses Petr's implementation of the TextRank algorithm, with some slight improvements
 

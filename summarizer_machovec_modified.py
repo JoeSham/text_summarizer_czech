@@ -85,7 +85,7 @@ def summarize(text):
     # TOKENIZE
     stem = False
     if stem:
-        tokenized_sentences = [[czech_stemmer.cz_stem(word, aggressive=False) for word in sentence]
+        tokenized_sentences = [[czech_stemmer.cz_stem(word, aggressive=True) for word in sentence]
                                for sentence in tokenize(sentences)]
     else:
         tokenized_sentences = tokenize(sentences)
@@ -111,7 +111,7 @@ def summarize(text):
     summary = ''
     counter = 0
     summary_length = max(min(round(len(sentences) / 4), 15), 3)  # length between 3-15 sentences
-    ranked_sentence_indexes = textrank.textrank(tokenized_sentences, True, '4-1-1')
+    ranked_sentence_indexes = textrank.textrank(tokenized_sentences, True, '3-1-0.0001')
     print(f'ranked_sentence_indexes: {ranked_sentence_indexes}')
     # add 1st sentence always
     summary += f'{sentences[0]}\n'
@@ -169,7 +169,8 @@ def main():
                 total_articles += 1
         print(f'Tested {total_articles} articles.')
         print(f'Resulting summaries stored to {my_dir}/rouge_2_0/summarizer/system/')
-        print_rouge_scores()
+        print_rouge_scores(rougen=1)
+        print_rouge_scores(rougen=2)
 
 
 if __name__ == "__main__":

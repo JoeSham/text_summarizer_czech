@@ -14,6 +14,7 @@ my_dir = os.path.dirname(os.path.realpath(__file__))
 print(f'dir: {my_dir}')
 article_files = os.listdir(f'{my_dir}/articles')
 
+article_count = 0
 articles_in_sentences = {}
 for filename in article_files:
     file_name, file_extension = os.path.splitext(filename)
@@ -24,6 +25,7 @@ for filename in article_files:
     article_number = 0
 
     for article in articles:
+        article_count += 1
         title = article.find('nadpis').text.strip()
         content = article.find('text').text.strip()
         # SPLIT TO SENTENCES
@@ -34,6 +36,7 @@ for filename in article_files:
         article_number += 1
 
 print(articles_in_sentences)
+print(f'Articles total: {article_count}')
 
 dirr = os.path.dirname(os.path.realpath(__file__))
 golden_filenames = os.listdir(f'{dirr}/rouge_2_0/summarizer/reference')

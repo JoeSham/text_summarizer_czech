@@ -5,8 +5,8 @@ This module includes 'textrank' function, which performs TextRank algorithm with
 and words, i.e. it detects the salience of sentences. Indexes of sentences ordered descendingly by their computed
 scores are returned in a list.
 
-Modified version of a script originally written by Petr Machovec.
-- Bm25 similarity function added
+Slightly modified version of a script originally written by Petr Machovec.
+Bm25 similarity function added by Josef Samanek
 """
 
 import math
@@ -73,7 +73,7 @@ def textrank(sentences, use_words, config):
             graph.add_edge(i, j, value=sim)
             sim_sum += sim
     
-    go_on =  True
+    go_on = True
     new_score = 0
     partial = 0
     

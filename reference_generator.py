@@ -1,5 +1,5 @@
 """
-Slightly modified version of a script originally written by Petr Machovec
+A slightly modified version of a script originally written by Petr Machovec
 """
 
 import os

@@ -9,7 +9,7 @@ import re
 import sys
 
 import numpy as np
-# from sklearn.neural_network import BernoulliRBM
+from sklearn.neural_network import BernoulliRBM
 import xml.etree.ElementTree as ET
 
 import czech_stemmer
@@ -464,7 +464,8 @@ def main():
                 total_articles += 1
         print(f'Tested {total_articles} articles.')
         print(f'Resulting summaries stored to {my_dir}/rouge_2_0/summarizer/system/')
-        print_rouge_scores()
+        print_rouge_scores(rougen=1)
+        print_rouge_scores(rougen=2)
 
 
 if __name__ == "__main__":
