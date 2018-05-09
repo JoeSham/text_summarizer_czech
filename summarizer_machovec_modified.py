@@ -108,24 +108,40 @@ def summarize(text):
     for i, s in enumerate(tagged_sentences):
         print(f'''#{i+1}: {s}''')
 
-    summary = ''
     counter = 0
     summary_length = max(min(round(len(sentences) / 4), 15), 3)  # length between 3-15 sentences
     ranked_sentence_indexes = textrank.textrank(tokenized_sentences, True, '3-1-0.0001')
     print(f'ranked_sentence_indexes: {ranked_sentence_indexes}')
+    # summary = ''
+    # # add 1st sentence always
+    # summary += f'{sentences[0]}\n'
+    # counter += 1
+    # ranked_sentence_indexes.remove(0)
+    # # # add also 2nd sentence if it is in top 50%
+    # if 1 in ranked_sentence_indexes[:len(ranked_sentence_indexes) // 2]:
+    #     summary += f'{sentences[1]}\n'
+    #     counter += 1
+    #     ranked_sentence_indexes.remove(1)
+    # for sentence_index in sorted(ranked_sentence_indexes[:summary_length - counter]):
+    #     if counter == summary_length:
+    #         break
+    #     summary += f'{sentences[sentence_index]}\n'
+    #     counter += 1
+    # summary += f'::::: Sentences in original: {len(sentences)}. Sentences in summary: {summary_length}. :::::'
     # add 1st sentence always
-    summary += f'{sentences[0]}\n'
+    summary = []
+    summary.append(sentences[0])
     counter += 1
     ranked_sentence_indexes.remove(0)
     # # add also 2nd sentence if it is in top 50%
     if 1 in ranked_sentence_indexes[:len(ranked_sentence_indexes) // 2]:
-        summary += f'{sentences[1]}\n'
+        summary.append(sentences[1])
         counter += 1
         ranked_sentence_indexes.remove(1)
     for sentence_index in sorted(ranked_sentence_indexes[:summary_length - counter]):
         if counter == summary_length:
             break
-        summary += f'{sentences[sentence_index]}\n'
+        summary.append(sentences[sentence_index])
         counter += 1
     return summary
 
@@ -158,7 +174,7 @@ def main():
                 content = article.find('text').text.strip()
                 print(f'Článek {article_number}: {title}')
 
-                summary = summarize(content)
+                summary = '\n'.join(summarize(content))
 
                 output_file_name = f'{file_name}-{article_number}_system.txt'
 

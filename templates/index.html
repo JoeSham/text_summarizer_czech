@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sumarizátor českých textů</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 5px;
+        }
+        footer {
+            text-align: right;
+        }
+        form {
+            margin-bottom: 15px;
+        }
+        #summary {
+            text-align: justify;
+            /*white-space: pre-wrap;*/
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h2>Sumarizátor českých textů</h2>
+
+    <form class="form-horizontal" method="post">
+      <div class="form-group">
+          <label for="text"><h5>Text k sumarizaci</h5></label>
+        <textarea class="form-control" id="text" name="text" rows="3">{{ text }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Sumarizuj</button>
+    </form>
+
+    <h5>Sumarizovaný text</h5>
+    <ul id="summary">
+        {% for sentence in summary %}
+        <li><div class="sentence">{{ sentence }}</div></li>
+        {% endfor %}
+    </ul>
+
+    <footer>Autor stránky: <a href="https://www.linkedin.com/in/josefsamanek">Josef Šamánek</a></footer>
+</div>
+</body>
+</html>
