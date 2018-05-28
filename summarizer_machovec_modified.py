@@ -57,9 +57,11 @@ def remove_stop_words(sentences, keep_case=False, is_tokenized=True, return_toke
     return sentences_without_stopwords
 
 
-def tokenize(sentences):
+def tokenize(sentences, additional_split_chars=('/', '|')):
     tokenized = []
     for s in sentences:
+        for split_char in additional_split_chars:
+            s = s.replace(split_char, ' ')
         tokenized.append([w.strip(' ,.!?"():;-') for w in s.split()])
         # tokenized.append(s.split())
     return tokenized
